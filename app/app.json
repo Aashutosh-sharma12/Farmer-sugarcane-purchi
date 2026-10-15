@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "Purchi Store",
+    "slug": "purchi-store",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.aashutosh1.purchistore"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Allow Purchi Store to take photos of your purchi.",
+          "photosPermission": "Allow Purchi Store to choose a purchi photo."
+        }
+      ]
+    ],
+    "extra": {
+      "apiUrl": "https://farmer-sugarcane-purchi.onrender.com",
+      "eas": {
+        "projectId": "5103770c-352f-4b72-bd5b-0bc5c95d2ee7"
+      }
+    }
+  }
+}
