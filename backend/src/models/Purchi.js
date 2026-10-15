@@ -35,7 +35,7 @@ const purchiSchema = new mongoose.Schema(
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     purchiNumber: { type: String, required: true },
     imageHash: { type: String, required: true },
-    imagePath: { type: String, required: true },
+    imagePath: { type: String, default: '' }, // empty for purchis added by the admin without a photo
     ...commonFieldDefs,
     // Every label/value pair printed on the slip.
     fields: [{ _id: false, key: String, value: String }],

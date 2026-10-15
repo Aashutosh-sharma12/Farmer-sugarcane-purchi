@@ -6,6 +6,7 @@ function auth(req, res, next) {
   if (!token) return res.status(401).json({ message: 'Login required' });
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
+    if (payload.role === 'admin') throw new Error('admin token');
     req.user = { id: payload.id };
     next();
   } catch {
