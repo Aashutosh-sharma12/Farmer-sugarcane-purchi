@@ -3,6 +3,7 @@ import { ActivityIndicator, Image, Modal, Pressable, ScrollView, StyleSheet, Tex
 import { useFocusEffect } from '@react-navigation/native';
 import { showAlert } from '../alert';
 import client, { errorMessage, imageUrl } from '../api/client';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLang } from '../context/LangContext';
 import { millLabel } from '../constants/mills';
 import { COLORS, COMMON_FIELDS, FIELD_GROUPS, STATUSES, parseAmount, statusInfo } from '../constants/fields';
@@ -10,6 +11,7 @@ import { COLORS, COMMON_FIELDS, FIELD_GROUPS, STATUSES, parseAmount, statusInfo 
 export default function DetailScreen({ route, navigation }) {
   const { id, justSaved } = route.params;
   const { t, L, lang } = useLang();
+  const insets = useSafeAreaInsets();
   const [zoomUri, setZoomUri] = useState(null);
   const [showRaw, setShowRaw] = useState(false);
   const [purchi, setPurchi] = useState(null);
@@ -146,7 +148,7 @@ export default function DetailScreen({ route, navigation }) {
   ].filter(Boolean);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+    <ScrollView style={styles.container} contentContainerStyle={{ padding: 16, paddingBottom: 40 + insets.bottom }}>
       {!!justSaved && <Text style={styles.saved}>{t('saved')}</Text>}
       <Pressable onPress={() => setZoomUri(imageUrl(purchi.imagePath))}>
         <Image source={{ uri: imageUrl(purchi.imagePath) }} style={styles.image} resizeMode="contain" />

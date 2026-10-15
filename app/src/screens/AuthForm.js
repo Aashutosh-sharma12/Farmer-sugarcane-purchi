@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -22,6 +23,8 @@ export default function AuthForm({ mode, navigation }) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [passwordFocused, setPasswordFocused] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -58,13 +61,28 @@ export default function AuthForm({ mode, navigation }) {
         value={phone}
         onChangeText={setPhone}
       />
-      <TextInput
-        style={styles.input}
-        placeholder={t('password')}
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-      />
+      <View style={[styles.passwordBox, passwordFocused && styles.passwordBoxFocused]}>
+        <TextInput
+          style={styles.passwordInput}
+          placeholder={t('password')}
+          secureTextEntry={!showPassword}
+          autoCapitalize="none"
+          autoCorrect={false}
+          value={password}
+          onChangeText={setPassword}
+          onFocus={() => setPasswordFocused(true)}
+          onBlur={() => setPasswordFocused(false)}
+        />
+        <Pressable
+          style={styles.eye}
+          onPress={() => setShowPassword((v) => !v)}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={t(showPassword ? 'hidePassword' : 'showPassword')}
+        >
+          <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={22} color={COLORS.muted} />
+        </Pressable>
+      </View>
       {!!error && <Text style={styles.error}>{error}</Text>}
 
       <Pressable style={styles.button} onPress={submit} disabled={busy}>
@@ -100,6 +118,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 12,
   },
+  passwordBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 10,
+    marginBottom: 12,
+  },
+  passwordBoxFocused: { borderColor: COLORS.primary },
+  // outline: the browser's own focus ring would draw a square inside the rounded box
+  passwordInput: { flex: 1, padding: 14, fontSize: 16, ...(Platform.OS === 'web' ? { outlineStyle: 'none' } : {}) },
+  eye: { paddingHorizontal: 14, paddingVertical: 12 },
   error: { color: COLORS.danger, marginBottom: 12 },
   button: { backgroundColor: COLORS.primary, borderRadius: 10, padding: 16, alignItems: 'center', marginTop: 4 },
   buttonText: { color: COLORS.white, fontSize: 17, fontWeight: '600' },

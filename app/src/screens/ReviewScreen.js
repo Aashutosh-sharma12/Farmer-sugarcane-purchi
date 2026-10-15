@@ -14,6 +14,7 @@ import MillPicker from '../components/MillPicker';
 import { DEFAULT_MILL } from '../constants/mills';
 import { getItem, setItem } from '../storage';
 import client, { errorMessage } from '../api/client';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLang } from '../context/LangContext';
 import { COLORS, COMMON_FIELDS } from '../constants/fields';
 
@@ -23,6 +24,7 @@ const LAST_MILL_KEY = 'purchi_last_mill';
 export default function ReviewScreen({ route, navigation }) {
   const { imageHash, imageUri, warning, data } = route.params;
   const { t, L } = useLang();
+  const insets = useSafeAreaInsets();
   const [purchiNumber, setPurchiNumber] = useState(data.purchiNumber || '');
   const [values, setValues] = useState(
     Object.fromEntries(COMMON_FIELDS.map((f) => [f.key, data[f.key] || (f.key === 'millName' ? DEFAULT_MILL : '')]))
@@ -70,7 +72,7 @@ export default function ReviewScreen({ route, navigation }) {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+    <ScrollView style={styles.container} contentContainerStyle={{ padding: 16, paddingBottom: 40 + insets.bottom }}>
       <Image source={{ uri: imageUri }} style={styles.image} resizeMode="contain" />
       {!!warning && (
         <Text style={styles.warning}>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import client, { errorMessage } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LangContext';
@@ -9,6 +10,7 @@ import { COLORS, MONTHS, STATUSES, money, parseAmount, pendingOf, purchiDate, st
 export default function HomeScreen({ navigation }) {
   const { user, signOut } = useAuth();
   const { t, L, lang, setLang } = useLang();
+  const insets = useSafeAreaInsets();
   const [items, setItems] = useState([]);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('');
@@ -216,7 +218,7 @@ export default function HomeScreen({ navigation }) {
         data={visible}
         keyExtractor={(i) => i._id}
         renderItem={renderItem}
-        contentContainerStyle={{ paddingBottom: 100 }}
+        contentContainerStyle={{ paddingBottom: 100 + insets.bottom }}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={() => load(query.trim())} />}
         ListEmptyComponent={
           !loading && (
@@ -237,7 +239,7 @@ export default function HomeScreen({ navigation }) {
           )
         }
       />
-      <Pressable style={styles.fab} onPress={() => navigation.navigate('Scan')}>
+      <Pressable style={[styles.fab, { bottom: 32 + insets.bottom }]} onPress={() => navigation.navigate('Scan')}>
         <Text style={styles.fabText}>{t('addPurchi')}</Text>
       </Pressable>
     </View>
