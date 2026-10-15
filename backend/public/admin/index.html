@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Purchi Admin</title>
+<style>
+  :root { --primary:#2E7D32; --light:#E8F5E9; --danger:#C62828; --text:#1B1B1B; --muted:#666; --border:#DDD; --bg:#F6F7F6; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--text); }
+  a { color:var(--primary); text-decoration:none; } a:hover { text-decoration:underline; }
+  header { background:var(--primary); color:#fff; display:flex; align-items:center; gap:20px; padding:0 20px; height:56px; flex-wrap:wrap; }
+  header .brand { font-weight:700; font-size:18px; }
+  header nav { display:flex; gap:4px; flex:1; }
+  header nav a, header button { color:#fff; padding:8px 12px; border-radius:6px; background:none; border:0; font:inherit; cursor:pointer; }
+  header nav a.active, header nav a:hover, header button:hover { background:rgba(255,255,255,.18); text-decoration:none; }
+  main { max-width:1100px; margin:24px auto; padding:0 16px; }
+  h1 { font-size:22px; margin:0 0 16px; } h2 { font-size:17px; margin:0 0 12px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px; margin-bottom:24px; }
+  .two { display:grid; grid-template-columns:repeat(auto-fit,minmax(420px,1fr)); gap:16px; }
+  .card { background:#fff; border:1px solid var(--border); border-radius:10px; padding:16px; overflow-x:auto; }
+  .stat .n { font-size:30px; font-weight:700; color:var(--primary); } .stat .l { color:var(--muted); font-size:13px; }
+  .stat.pend .n { color:#E65100; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid #EEE; white-space:nowrap; }
+  th { color:var(--muted); font-weight:600; font-size:12px; text-transform:uppercase; }
+  tr:last-child td { border-bottom:0; }
+  input, select { font:inherit; padding:9px 11px; border:1px solid var(--border); border-radius:7px; width:100%; }
+  button.btn { background:var(--primary); color:#fff; border:0; padding:10px 16px; border-radius:7px; font:inherit; cursor:pointer; }
+  button.btn:hover { filter:brightness(.92); } button.btn:disabled { opacity:.6; cursor:wait; }
+  label { display:block; font-size:13px; color:var(--muted); margin:12px 0 4px; }
+  .msg { margin-top:12px; font-size:14px; } .err { color:var(--danger); } .ok { color:var(--primary); }
+  .login { max-width:360px; margin:12vh auto; } .login h1 { text-align:center; color:var(--primary); }
+  .badge { padding:2px 8px; border-radius:20px; font-size:12px; font-weight:600; }
+  .s-pending{background:#FFF3E0;color:#E65100} .s-partial{background:#E3F2FD;color:#1565C0} .s-received{background:#E8F5E9;color:#2E7D32}
+  .s-problem{background:#FFEBEE;color:#C62828} .s-cancelled{background:#EEE;color:#616161}
+  .bar { display:flex; gap:12px; margin-bottom:16px; align-items:center; } .bar input { max-width:320px; }
+  .muted { color:var(--muted); } .right { text-align:right; }
+  .form { max-width:420px; } .formwide { max-width:760px; } .fgrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:0 16px; }
+  a.btn { display:inline-block; background:var(--primary); color:#fff; padding:10px 16px; border-radius:7px; } a.btn:hover { text-decoration:none; filter:brightness(.92); }
+  button.danger { background:var(--danger); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+const BASE = '/admin';
+const API = '/api/admin';
+const app = document.getElementById('app');
+let token = localStorage.getItem('adminToken');
+
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+const money = (n) => '₹' + (Math.round((Number(n) || 0) * 100) / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+const fmtDate = (d) => (d ? new Date(d).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '');
+const badge = (s) => `<span class="badge s-${esc(s)}">${esc(s)}</span>`;
+
+async function api(path, options = {}) {
+  const res = await fetch(API + path, {
+    ...options,
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) },
+    body: options.body ? JSON.stringify(options.body) : undefined,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401 && path !== '/login') { logout(); throw new Error(data.message || 'Session expired'); }
+  if (!res.ok) throw new Error(data.message || 'Request failed');
+  return data;
+}
+
+function go(path) { history.pushState({}, '', BASE + path); render(); }
+function logout() { token = null; localStorage.removeItem('adminToken'); history.replaceState({}, '', BASE + '/login'); render(); }
+document.addEventListener('click', (e) => {
+  const a = e.target.closest('a[data-link]');
+  if (a) { e.preventDefault(); go(a.getAttribute('href').slice(BASE.length)); }
+});
+window.addEventListener('popstate', render);
+
+function layout(active, body) {
+  const link = (path, label) => `<a data-link href="${BASE}${path}" class="${active === path ? 'active' : ''}">${label}</a>`;
+  return `<header><span class="brand">Purchi Admin</span>
+    <nav>${link('', 'Dashboard')}${link('/users', 'Users')}${link('/password', 'Change password')}</nav>
+    <button id="logout">Logout</button></header><main>${body}</main>`;
+}
+
+function bindLogout() { document.getElementById('logout').onclick = logout; }
+
+async function render() {
+  let path = location.pathname.replace(/\/+$/, '').slice(BASE.length);
+  if (!token) {
+    if (path !== '/login') history.replaceState({}, '', BASE + '/login');
+    return renderLogin();
+  }
+  if (path === '/login') { history.replaceState({}, '', BASE); path = ''; }
+  app.innerHTML = layout('', '<p class="muted">Loading...</p>');
+  bindLogout();
+  try {
+    if (path === '') await renderDashboard();
+    else if (path === '/users') await renderUsers();
+    else if (path === '/users/new') renderUserForm(null);
+    else if (/^\/users\/[^/]+\/edit$/.test(path)) await renderUserForm(path.split('/')[2]);
+    else if (/^\/users\/[^/]+\/purchis\/new$/.test(path)) await renderPurchiForm({ userId: path.split('/')[2] });
+    else if (/^\/purchis\/[^/]+\/edit$/.test(path)) await renderPurchiForm({ id: path.split('/')[2] });
+    else if (/^\/users\/[^/]+$/.test(path)) await renderUser(path.split('/')[2]);
+    else if (path === '/password') renderPassword();
+    else app.innerHTML = layout('', '<h1>Page not found</h1>'), bindLogout();
+  } catch (err) {
+    if (token) { app.innerHTML = layout('', `<p class="err">${esc(err.message)}</p>`); bindLogout(); }
+  }
+}
+
+function renderLogin() {
+  app.innerHTML = `<form class="card login" id="f"><h1>Admin Login</h1>
+    <label>Email</label><input name="username" autocomplete="username" required autofocus>
+    <label>Password</label><input name="password" type="password" autocomplete="current-password" required>
+    <p class="msg err" id="msg"></p><button class="btn" style="width:100%">Login</button></form>`;
+  document.getElementById('f').onsubmit = async (e) => {
+    e.preventDefault();
+    const f = e.target, btn = f.querySelector('button'), msg = document.getElementById('msg');
+    btn.disabled = true; msg.textContent = '';
+    try {
+      const data = await api('/login', { method: 'POST', body: { username: f.username.value, password: f.password.value } });
+      token = data.token; localStorage.setItem('adminToken', token);
+      go('');
+    } catch (err) { msg.textContent = err.message; btn.disabled = false; }
+  };
+}
+
+async function renderDashboard() {
+  const d = await api('/dashboard');
+  const users = d.latestUsers.map((u) => `<tr><td><a data-link href="${BASE}/users/${esc(u._id)}">${esc(u.name)}</a></td><td>${esc(u.phone)}</td><td>${fmtDate(u.createdAt)}</td></tr>`).join('');
+  const purchis = d.latestPurchis.map((p) => `<tr><td>${esc(p.purchiNumber)}</td>
+    <td>${p.user ? `<a data-link href="${BASE}/users/${esc(p.user._id)}">${esc(p.user.name)}</a>` : '<span class="muted">deleted user</span>'}</td>
+    <td>${esc(p.amount || '-')}</td><td>${badge(p.status)}</td><td>${fmtDate(p.createdAt)}</td></tr>`).join('');
+  app.innerHTML = layout('', `<h1>Dashboard</h1>
+    <div class="grid"><div class="card stat"><div class="n">${d.userCount}</div><div class="l">Total users</div></div>
+    <div class="card stat"><div class="n">${d.purchiCount}</div><div class="l">Total purchis</div></div></div>
+    <div class="two">
+    <div class="card"><h2>Latest users</h2><table><tr><th>Name</th><th>Phone</th><th>Joined</th></tr>${users || '<tr><td class="muted">No users yet</td></tr>'}</table></div>
+    <div class="card"><h2>Latest purchis</h2><table><tr><th>Purchi no</th><th>User</th><th>Amount</th><th>Status</th><th>Added</th></tr>${purchis || '<tr><td class="muted">No purchis yet</td></tr>'}</table></div>
+    </div>`);
+  bindLogout();
+}
+
+async function renderUsers() {
+  app.innerHTML = layout('/users', `<h1>Users</h1><div class="bar"><input id="q" placeholder="Search name or phone"><a data-link class="btn" style="margin-left:auto;text-decoration:none" href="${BASE}/users/new">+ Add user</a></div><div class="card" id="list"></div>`);
+  bindLogout();
+  const list = document.getElementById('list');
+  const load = async (q) => {
+    const users = await api('/users?q=' + encodeURIComponent(q));
+    list.innerHTML = `<table><tr><th>Name</th><th>Phone</th><th class="right">Purchis</th><th class="right">Received</th><th class="right">Pending</th><th>Joined</th></tr>` +
+      (users.map((u) => `<tr><td><a data-link href="${BASE}/users/${esc(u._id)}">${esc(u.name)}</a></td><td>${esc(u.phone)}</td>
+        <td class="right">${u.purchiCount}</td><td class="right">${money(u.received)}</td><td class="right">${money(u.pending)}</td><td>${fmtDate(u.createdAt)}</td></tr>`).join('') || '<tr><td class="muted">No users found</td></tr>') + '</table>';
+  };
+  let timer;
+  document.getElementById('q').oninput = (e) => { clearTimeout(timer); timer = setTimeout(() => load(e.target.value.trim()).catch(() => {}), 250); };
+  await load('');
+}
+
+async function renderUser(id) {
+  const d = await api('/users/' + encodeURIComponent(id));
+  const rows = d.purchis.map((p) => `<tr><td>${esc(p.purchiNumber)}</td><td>${esc(p.millName || '-')}</td><td>${esc(p.date || '-')}</td>
+    <td class="right">${esc(p.amount || '-')}</td><td class="right">${money(p.receivedAmount)}</td>
+    <td class="right">${p.amountValue == null ? '-' : money(p.pendingValue)}</td><td>${badge(p.status)}</td>
+    <td>${p.imagePath ? `<a target="_blank" rel="noopener" href="${esc(p.imagePath)}">View</a>` : ''}</td>
+    <td><a data-link href="${BASE}/purchis/${esc(p._id)}/edit">Edit</a> &middot; <a href="#" class="delP" data-id="${esc(p._id)}" data-no="${esc(p.purchiNumber)}" style="color:var(--danger)">Delete</a></td></tr>`).join('');
+  app.innerHTML = layout('/users', `<p><a data-link href="${BASE}/users">&larr; All users</a></p>
+    <h1>${esc(d.user.name)} <span class="muted" style="font-size:15px">${esc(d.user.phone)}</span></h1>
+    <div class="bar"><a data-link class="btn" style="text-decoration:none" href="${BASE}/users/${esc(id)}/edit">Edit user</a>
+      <a data-link class="btn" style="text-decoration:none" href="${BASE}/users/${esc(id)}/purchis/new">+ Add purchi</a>
+      <button class="btn danger" id="delUser">Delete user</button></div>
+    <div class="grid">
+      <div class="card stat"><div class="n">${d.summary.purchiCount}</div><div class="l">Purchis</div></div>
+      <div class="card stat"><div class="n">${money(d.summary.total)}</div><div class="l">Total amount</div></div>
+      <div class="card stat"><div class="n">${money(d.summary.received)}</div><div class="l">Received</div></div>
+      <div class="card stat pend"><div class="n">${money(d.summary.pending)}</div><div class="l">Pending</div></div>
+    </div>
+    <div class="card" style="margin-bottom:16px"><h2>Purchi list</h2><table>
+      <tr><th>Purchi no</th><th>Mill</th><th>Date</th><th class="right">Amount</th><th class="right">Received</th><th class="right">Pending</th><th>Status</th><th>Image</th><th></th></tr>
+      ${rows || '<tr><td class="muted">No purchis</td></tr>'}</table></div>
+    <div class="card form"><h2>Change user password</h2><form id="pf">
+      <label>New password (min 6 characters)</label><input name="pw" type="text" minlength="6" required autocomplete="off">
+      <p class="msg" id="msg"></p><button class="btn">Change password</button></form></div>`);
+  bindLogout();
+  document.getElementById('delUser').onclick = async () => {
+    if (!confirm(`Delete ${d.user.name} and all ${d.summary.purchiCount} purchis? This cannot be undone.`)) return;
+    try { await api('/users/' + encodeURIComponent(id), { method: 'DELETE' }); go('/users'); } catch (err) { alert(err.message); }
+  };
+  document.querySelectorAll('.delP').forEach((a) => a.onclick = async (e) => {
+    e.preventDefault();
+    if (!confirm('Delete purchi ' + a.dataset.no + '?')) return;
+    try { await api('/purchis/' + a.dataset.id, { method: 'DELETE' }); render(); } catch (err) { alert(err.message); }
+  });
+  document.getElementById('pf').onsubmit = async (e) => {
+    e.preventDefault();
+    const f = e.target, btn = f.querySelector('button'), msg = document.getElementById('msg');
+    if (!confirm('Change password for ' + d.user.name + '?')) return;
+    btn.disabled = true; msg.textContent = '';
+    try {
+      await api(`/users/${encodeURIComponent(id)}/password`, { method: 'PUT', body: { newPassword: f.pw.value } });
+      msg.className = 'msg ok'; msg.textContent = 'Password changed'; f.reset();
+    } catch (err) { msg.className = 'msg err'; msg.textContent = err.message; }
+    btn.disabled = false;
+  };
+}
+
+async function renderUserForm(id) {
+  const u = id ? (await api('/users/' + encodeURIComponent(id))).user : { name: '', phone: '' };
+  app.innerHTML = layout('/users', `<h1>${id ? 'Edit user' : 'Add user'}</h1><div class="card form"><form id="f">
+    <label>Name</label><input name="name" value="${esc(u.name)}" required>
+    <label>Phone (10 digits)</label><input name="phone" value="${esc(u.phone)}" pattern="\\d{10}" required>
+    <label>${id ? 'New password (leave empty to keep the current one)' : 'Password (min 6 characters)'}</label>
+    <input name="password" minlength="6" autocomplete="off" ${id ? '' : 'required'}>
+    <p class="msg err" id="msg"></p><button class="btn">Save</button></form></div>`);
+  bindLogout();
+  document.getElementById('f').onsubmit = async (e) => {
+    e.preventDefault();
+    const f = e.target, btn = f.querySelector('button'), msg = document.getElementById('msg');
+    btn.disabled = true; msg.textContent = '';
+    try {
+      const body = { name: f.name.value, phone: f.phone.value, password: f.password.value };
+      const saved = id ? await api('/users/' + encodeURIComponent(id), { method: 'PUT', body }) : await api('/users', { method: 'POST', body });
+      go('/users/' + saved._id);
+    } catch (err) { msg.textContent = err.message; btn.disabled = false; }
+  };
+}
+
+const PURCHI_FIELDS = [
+  ['purchiNumber', 'Purchi number (mill)'], ['samitiPurchiNumber', 'Society purchi no'], ['growerNumber', 'Grower registration no'],
+  ['farmerName', 'Farmer name'], ['farmerCode', 'Farmer code'], ['fatherName', "Father's name"], ['village', 'Village'],
+  ['centre', 'Centre'], ['millName', 'Mill'], ['date', 'Date and time'], ['season', 'Season'], ['clerk', 'Clerk'],
+  ['vehicleNo', 'Vehicle no'], ['variety', 'Variety'], ['grossWeight', 'Loaded vehicle weight'], ['tareWeight', 'Empty vehicle weight'],
+  ['caneWeight', 'Total cane weight'], ['deduction', 'Deduction'], ['netWeight', 'Net cane weight'], ['rate', 'Rate per quintal'],
+  ['amount', 'Total cane value'],
+];
+const STATUS_LIST = ['pending', 'partial', 'received', 'problem', 'cancelled'];
+
+async function renderPurchiForm({ id, userId }) {
+  const p = id ? await api('/purchis/' + encodeURIComponent(id)) : { status: 'pending', receivedAmount: 0 };
+  const owner = id ? p.user : null;
+  const back = id ? (owner ? '/users/' + owner._id : '/users') : '/users/' + userId;
+  const inputs = PURCHI_FIELDS.map(([k, label]) => `<div><label>${label}${k === 'purchiNumber' ? ' *' : ''}</label><input name="${k}" value="${esc(p[k])}" ${k === 'purchiNumber' ? 'required' : ''}></div>`).join('');
+  app.innerHTML = layout('/users', `<p><a data-link href="${BASE}${back}">&larr; Back</a></p>
+    <h1>${id ? 'Edit purchi' : 'Add purchi'}${owner ? ` <span class="muted" style="font-size:15px">of ${esc(owner.name)}</span>` : ''}</h1>
+    <div class="card formwide"><form id="f"><div class="fgrid">${inputs}
+      <div><label>Status</label><select name="status">${STATUS_LIST.map((s) => `<option ${s === p.status ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
+      <div><label>Received amount</label><input name="receivedAmount" type="number" min="0" step="any" value="${esc(p.receivedAmount ?? 0)}"></div>
+    </div><p class="msg err" id="msg"></p><button class="btn">Save</button></form></div>`);
+  bindLogout();
+  document.getElementById('f').onsubmit = async (e) => {
+    e.preventDefault();
+    const f = e.target, btn = f.querySelector('button'), msg = document.getElementById('msg');
+    btn.disabled = true; msg.textContent = '';
+    const body = { status: f.status.value, receivedAmount: f.receivedAmount.value };
+    PURCHI_FIELDS.forEach(([k]) => (body[k] = f[k].value));
+    try {
+      if (id) await api('/purchis/' + encodeURIComponent(id), { method: 'PUT', body });
+      else await api(`/users/${encodeURIComponent(userId)}/purchis`, { method: 'POST', body });
+      go(back);
+    } catch (err) { msg.textContent = err.message; btn.disabled = false; }
+  };
+}
+
+function renderPassword() {
+  app.innerHTML = layout('/password', `<h1>Change password</h1><div class="card form"><form id="f">
+    <label>Current password</label><input name="cur" type="password" autocomplete="current-password" required>
+    <label>New password (min 8 characters)</label><input name="n1" type="password" minlength="8" autocomplete="new-password" required>
+    <label>Confirm new password</label><input name="n2" type="password" minlength="8" autocomplete="new-password" required>
+    <p class="msg" id="msg"></p><button class="btn">Change password</button></form></div>`);
+  bindLogout();
+  document.getElementById('f').onsubmit = async (e) => {
+    e.preventDefault();
+    const f = e.target, btn = f.querySelector('button'), msg = document.getElementById('msg');
+    msg.className = 'msg err';
+    if (f.n1.value !== f.n2.value) { msg.textContent = 'New passwords do not match'; return; }
+    btn.disabled = true; msg.textContent = '';
+    try {
+      await api('/password', { method: 'PUT', body: { currentPassword: f.cur.value, newPassword: f.n1.value } });
+      msg.className = 'msg ok'; msg.textContent = 'Password changed'; f.reset();
+    } catch (err) { msg.textContent = err.message; }
+    btn.disabled = false;
+  };
+}
+
+render();
+</script>
+</body>
+</html>
